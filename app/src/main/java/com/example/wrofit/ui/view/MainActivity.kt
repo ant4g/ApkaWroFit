@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,11 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wrofit.data.model.FoodEntry
 import com.example.wrofit.ui.viewmodel.FoodViewModel
@@ -168,15 +171,27 @@ fun ExerciseScreen() {
 }
 
 // --- 5. PROFILE SCREEN  ---
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ProfileScreen() {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val calendar = remember { Calendar.getInstance() }
     var selectedDate by remember {
         mutableStateOf(SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(calendar.time))
     }
+    var fullName by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf("") }
+    var weight by remember { mutableStateOf("") }
+    var height by remember { mutableStateOf("") }
+    var goal by remember { mutableStateOf("") }
+    var activityLevel by remember { mutableStateOf("") }
+    var genderExpanded by remember { mutableStateOf(false) }
+    var activityExpanded by remember { mutableStateOf(false) }
 
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+    val genderOptions = listOf("Kobieta", "Mężczyzna", "Wolę nie podawać")
+    val activityOptions = listOf("Wysoki", "Średni", "Niski", "Brak - siedzący")
     val openDatePicker = {
         runCatching { dateFormatter.parse(selectedDate) }
             .getOrNull()
@@ -230,9 +245,113 @@ fun ProfileScreen() {
         }
         Spacer(Modifier.height(24.dp))
         Text("Informacje o Tobie", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        val fields = listOf("Imię i nazwisko", "Płeć", "Waga", "Wzrost", "Cel", "Poziom aktywności")
-        fields.forEach { field ->
-            OutlinedTextField(value = "", onValueChange = {}, label = { Text(field) }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+
+        OutlinedTextField(
+            value = fullName,
+            onValueChange = { input ->
+                if (input.all { it.isLetter() || it.isWhitespace() }) {
+                    fullName = input
+                }
+            },
+            label = { Text("Imię i nazwisko") },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = genderExpanded,
+            onExpandedChange = {
+                focusManager.clearFocus()
+                genderExpanded = !genderExpanded
+            },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        ) {
+            OutlinedTextField(
+                value = gender,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Płeć") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
+                modifier = Modifier.fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = genderExpanded,
+                onDismissRequest = { genderExpanded = false }
+            ) {
+                genderOptions.forEach { option ->
+                    DropdownMenuItem(onClick = {
+                        gender = option
+                        genderExpanded = false
+                    }) {
+                        Text(option)
+                    }
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = weight,
+            onValueChange = { input ->
+                if (input.all { it.isDigit() }) {
+                    weight = input
+                }
+            },
+            label = { Text("Waga") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+
+        OutlinedTextField(
+            value = height,
+            onValueChange = { input ->
+                if (input.all { it.isDigit() }) {
+                    height = input
+                }
+            },
+            label = { Text("Wzrost") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+
+        OutlinedTextField(
+            value = goal,
+            onValueChange = { input ->
+                if (input.all { it.isLetter() || it.isWhitespace() }) {
+                    goal = input
+                }
+            },
+            label = { Text("Cel") },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = activityExpanded,
+            onExpandedChange = {
+                focusManager.clearFocus()
+                activityExpanded = !activityExpanded
+            },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        ) {
+            OutlinedTextField(
+                value = activityLevel,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Poziom aktywności") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = activityExpanded) },
+                modifier = Modifier.fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = activityExpanded,
+                onDismissRequest = { activityExpanded = false }
+            ) {
+                activityOptions.forEach { option ->
+                    DropdownMenuItem(onClick = {
+                        activityLevel = option
+                        activityExpanded = false
+                    }) {
+                        Text(option)
+                    }
+                }
+            }
         }
     }
 }
