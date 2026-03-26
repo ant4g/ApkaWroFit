@@ -157,12 +157,65 @@ fun SleepScreen() {
 @Composable
 fun ExerciseScreen() {
     val exercises = listOf("Pajacyki", "Przysiady", "Pompki", "Deska", "Wykroki", "Burpees")
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+    var selectedDate by remember { mutableStateOf(dateFormatter.format(calendar.time)) }
+    var checkedExercises by remember { mutableStateOf(setOf<String>()) }
+
+    val openDatePicker = {
+        runCatching { dateFormatter.parse(selectedDate) }
+            .getOrNull()
+            ?.let { calendar.time = it }
+
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                selectedDate = dateFormatter.format(calendar.time)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Stwórz swój plan na dzisiaj", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = selectedDate,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Data treningu") },
+                trailingIcon = {
+                    IconButton(onClick = openDatePicker) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Wybierz datę treningu")
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = { checkedExercises = emptySet() }) {
+                Icon(Icons.Default.Refresh, contentDescription = "Resetuj zaznaczenia")
+                Spacer(Modifier.width(6.dp))
+                Text("Reset")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         LazyColumn {
             items(exercises) { ex ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                    Checkbox(checked = false, onCheckedChange = {})
+                    Checkbox(
+                        checked = ex in checkedExercises,
+                        onCheckedChange = { isChecked ->
+                            checkedExercises = if (isChecked) {
+                                checkedExercises + ex
+                            } else {
+                                checkedExercises - ex
+                            }
+                        }
+                    )
                     Text(ex, modifier = Modifier.padding(start = 8.dp))
                 }
             }
