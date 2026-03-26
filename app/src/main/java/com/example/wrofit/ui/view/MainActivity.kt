@@ -62,7 +62,11 @@ fun WroFitApp(viewModel: FoodViewModel) {
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .safeDrawingPadding()
+        ) {
             when (selectedTab) {
                 0 -> HomeScreen()     // [cite: 12, 17, 22]
                 1 -> FoodScreen(entries, totalCalories, viewModel) // [cite: 13, 18, 80]
