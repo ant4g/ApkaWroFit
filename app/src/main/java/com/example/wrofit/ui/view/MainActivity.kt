@@ -21,6 +21,7 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.wrofit.data.model.GalleryImage
 import com.example.wrofit.data.model.FoodEntry
 import com.example.wrofit.ui.viewmodel.ExerciseViewModel
 import com.example.wrofit.ui.viewmodel.FoodViewModel
@@ -109,7 +111,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     }
 
     if (viewModel.isPositionsGalleryVisible) {
-        PositionsGalleryDialog(onDismiss = viewModel::hidePositionsGallery)
+        PositionsGalleryDialog(viewModel = viewModel, onDismiss = viewModel::hidePositionsGallery)
     }
 }
 
@@ -197,32 +199,10 @@ fun TutorialVideoDialog(onDismiss: () -> Unit) {
     }
 }
 
-data class GalleryItem(
-    val title: String,
-    val drawableName: String
-)
-
 @Composable
-fun PositionsGalleryDialog(onDismiss: () -> Unit) {
+fun PositionsGalleryDialog(viewModel: HomeViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val galleryItems = remember {
-        listOf(
-            GalleryItem("Burpees", "home_position_1"),
-            GalleryItem("Deska", "home_position_2"),
-            GalleryItem("Mostek biodrowy", "home_position_3"),
-            GalleryItem("Pajacyki", "home_position_4"),
-            GalleryItem("Pompki", "home_position_5"),
-            GalleryItem("Przysiad szeroki", "home_position_6"),
-            GalleryItem("Przysiady", "home_position_7"),
-            GalleryItem("Rowerek", "home_position_8"),
-            GalleryItem("Russian twist", "home_position_9"),
-            GalleryItem("Superman", "home_position_10"),
-            GalleryItem("Wspinaczka", "home_position_11"),
-            GalleryItem("Trucht w miejscu", "home_position_12"),
-            GalleryItem("Wykroki", "home_position_13"),
-            GalleryItem("Wznoszenie nóg", "home_position_14")
-        )
-    }
+    val galleryItems by viewModel.galleryImages.observeAsState(initial = emptyList())
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -269,7 +249,7 @@ fun PositionsGalleryDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-fun GalleryImageCard(item: GalleryItem, context: android.content.Context) {
+fun GalleryImageCard(item: GalleryImage, context: android.content.Context) {
     val drawableId = remember(item.drawableName) {
         context.resources.getIdentifier(item.drawableName, "drawable", context.packageName)
     }
