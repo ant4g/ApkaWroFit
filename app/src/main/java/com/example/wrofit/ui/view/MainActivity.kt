@@ -1,15 +1,16 @@
 package com.example.wrofit.ui.view
 
 import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,13 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wrofit.data.model.FoodEntry
 import com.example.wrofit.ui.viewmodel.FoodViewModel
@@ -71,11 +72,11 @@ fun WroFitApp(viewModel: FoodViewModel) {
                 .safeDrawingPadding()
         ) {
             when (selectedTab) {
-                0 -> HomeScreen()     // [cite: 12, 17, 22]
-                1 -> FoodScreen(entries, totalCalories, viewModel) // [cite: 13, 18, 80]
-                2 -> SleepScreen()    // [cite: 14, 19, 107]
-                3 -> ExerciseScreen() // [cite: 15, 20, 136]
-                4 -> ProfileScreen()  // [cite: 16, 21, 190]
+                0 -> HomeScreen()
+                1 -> FoodScreen(entries, totalCalories, viewModel)
+                2 -> SleepScreen()
+                3 -> ExerciseScreen()
+                4 -> ProfileScreen()
             }
         }
     }
@@ -104,8 +105,8 @@ fun HomeScreen() {
         Spacer(Modifier.height(24.dp))
         Text("Poradniki", fontWeight = FontWeight.Bold, fontSize = 22.sp)
 
-        TutorialCard("Ćwicz poprawnie", "Zobacz film instruktażowy ▷") // [cite: 44]
-        TutorialCard("Sprawdź poprawne pozycje", "Zobacz galerię pozycji ▷") // [cite: 59]
+        TutorialCard("Ćwicz poprawnie", "Zobacz film instruktażowy")
+        TutorialCard("Sprawdź poprawne pozycje", "Zobacz galerię pozycji")
     }
 }
 
@@ -121,7 +122,6 @@ fun TutorialCard(title: String, buttonText: String) {
     }
 }
 
-// --- 2. FOOD SCREEN [cite: 80, 81, 82, 83] ---
 @Composable
 fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -137,23 +137,123 @@ fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel
     }
 }
 
-// --- 3. SLEEP SCREEN [cite: 107, 108, 110, 111, 112] ---
 @Composable
 fun SleepScreen() {
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+    var selectedDate by remember { mutableStateOf(dateFormatter.format(calendar.time)) }
+    var sleepTime by remember { mutableStateOf("") }
+    var wakeTime by remember { mutableStateOf("") }
+    var difficulties by remember { mutableStateOf("") }
+
+    val openDatePicker = {
+        runCatching { dateFormatter.parse(selectedDate) }
+            .getOrNull()
+            ?.let { calendar.time = it }
+
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                selectedDate = dateFormatter.format(calendar.time)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    fun openTimePicker(initialValue: String, onTimeSelected: (String) -> Unit) {
+        val parts = initialValue.split(":")
+        val initialHour = parts.getOrNull(0)?.toIntOrNull() ?: calendar.get(Calendar.HOUR_OF_DAY)
+        val initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: calendar.get(Calendar.MINUTE)
+
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                onTimeSelected(String.format(Locale.getDefault(), "%02d:%02d", hourOfDay, minute))
+            },
+            initialHour,
+            initialMinute,
+            true
+        ).show()
+    }
+
+    val sleepDurationText = remember(sleepTime, wakeTime) {
+        val sleepParts = sleepTime.split(":")
+        val wakeParts = wakeTime.split(":")
+        val sleepHour = sleepParts.getOrNull(0)?.toIntOrNull()
+        val sleepMinute = sleepParts.getOrNull(1)?.toIntOrNull()
+        val wakeHour = wakeParts.getOrNull(0)?.toIntOrNull()
+        val wakeMinute = wakeParts.getOrNull(1)?.toIntOrNull()
+
+        if (sleepHour == null || sleepMinute == null || wakeHour == null || wakeMinute == null) {
+            "--"
+        } else {
+            val sleepMinutes = sleepHour * 60 + sleepMinute
+            var wakeMinutes = wakeHour * 60 + wakeMinute
+            if (wakeMinutes < sleepMinutes) {
+                wakeMinutes += 24 * 60
+            }
+            val duration = wakeMinutes - sleepMinutes
+            val hours = duration / 60
+            val minutes = duration % 60
+            "${hours} h ${minutes} min"
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Harmonogram snu", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(value = "", onValueChange = {}, label = { Text("Wprowadź datę snu") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = selectedDate,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Data snu") },
+            trailingIcon = {
+                IconButton(onClick = openDatePicker) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Wybierz datę snu")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = "", onValueChange = {}, label = { Text("Godzina zaśnięcia") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = "", onValueChange = {}, label = { Text("Godzina przebudzenia") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = sleepTime,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Godzina zaśnięcia") },
+            trailingIcon = {
+                IconButton(onClick = { openTimePicker(sleepTime) { sleepTime = it } }) {
+                    Icon(Icons.Default.AccessTime, contentDescription = "Wybierz godzinę zaśnięcia")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = wakeTime,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Godzina przebudzenia") },
+            trailingIcon = {
+                IconButton(onClick = { openTimePicker(wakeTime) { wakeTime = it } }) {
+                    Icon(Icons.Default.AccessTime, contentDescription = "Wybierz godzinę przebudzenia")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(Modifier.height(16.dp))
-        Text("Twoja ilość snu wynosi: --", fontWeight = FontWeight.Bold)
-        OutlinedTextField(value = "", onValueChange = {}, label = { Text("Twój cel snu") }, modifier = Modifier.fillMaxWidth())
+        Text("Twoja ilość snu wynosi: $sleepDurationText", fontWeight = FontWeight.Bold)
+        OutlinedTextField(
+            value = difficulties,
+            onValueChange = { difficulties = it },
+            label = { Text("Zaistniałe trudności") },
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
-// --- 4. EXERCISE SCREEN [cite: 136, 137, 141, 163] ---
 @Composable
 fun ExerciseScreen() {
     val exercises = listOf("Pajacyki", "Przysiady", "Pompki", "Deska", "Wykroki", "Burpees")
@@ -179,6 +279,7 @@ fun ExerciseScreen() {
             calendar.get(Calendar.DAY_OF_MONTH)
         ).show()
     }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Stwórz swój plan na dzisiaj", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
@@ -223,7 +324,6 @@ fun ExerciseScreen() {
     }
 }
 
-// --- 5. PROFILE SCREEN  ---
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ProfileScreen() {
@@ -409,7 +509,6 @@ fun ProfileScreen() {
     }
 }
 
-// --- NAVIGATION & UTILS ---
 @Composable
 fun CustomBottomNavigation(selected: Int, onSelected: (Int) -> Unit) {
     Card(modifier = Modifier.padding(16.dp).height(70.dp).fillMaxWidth(), shape = RoundedCornerShape(35.dp), elevation = 8.dp) {
@@ -454,6 +553,7 @@ fun AddFoodDialog(onDismiss: () -> Unit, onConfirm: (String, Double, String) -> 
     var name by remember { mutableStateOf("") }
     var kcal by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Dodaj posiłek") },
