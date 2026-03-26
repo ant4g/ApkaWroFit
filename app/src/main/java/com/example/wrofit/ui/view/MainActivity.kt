@@ -128,6 +128,10 @@ fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel
             ?.let { "[ ${polishFormatter.format(it).uppercase(Locale("pl", "PL"))} ]" }
             ?: ""
     }
+    val breakfastTotal = listOf(breakfastKcal1, breakfastKcal2, breakfastKcal3).sumOf { it.toIntOrNull() ?: 0 }
+    val lunchTotal = listOf(lunchKcal1, lunchKcal2, lunchKcal3).sumOf { it.toIntOrNull() ?: 0 }
+    val dinnerTotal = listOf(dinnerKcal1, dinnerKcal2, dinnerKcal3).sumOf { it.toIntOrNull() ?: 0 }
+    val overallTotal = breakfastTotal + lunchTotal + dinnerTotal
 
     val openDatePicker = {
         runCatching { inputFormatter.parse(selectedDate) }
@@ -225,6 +229,14 @@ fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel
                 },
                 dateLabel = mealDateLabel
             )
+            Spacer(Modifier.height(24.dp))
+            Text("Suma Śniadanie: $breakfastTotal kcal", fontSize = 16.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("Suma Obiad: $lunchTotal kcal", fontSize = 16.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("Suma Kolacja: $dinnerTotal kcal", fontSize = 16.sp)
+            Spacer(Modifier.height(14.dp))
+            Text("Suma całościowa: $overallTotal kcal", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -739,4 +751,3 @@ fun AddFoodDialog(onDismiss: () -> Unit, onConfirm: (String, Double, String) -> 
         confirmButton = { Button(onClick = { onConfirm(name, kcal.toDoubleOrNull() ?: 0.0, type) }) { Text("DODAJ") } }
     )
 }
-
