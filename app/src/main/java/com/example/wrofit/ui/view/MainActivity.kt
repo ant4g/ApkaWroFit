@@ -3,6 +3,8 @@
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -11,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,10 +29,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wrofit.data.model.FoodEntry
 import com.example.wrofit.ui.viewmodel.ExerciseViewModel
 import com.example.wrofit.ui.viewmodel.FoodViewModel
+import com.example.wrofit.ui.viewmodel.HomeViewModel
 import com.example.wrofit.ui.viewmodel.NavigationViewModel
 import com.example.wrofit.ui.viewmodel.ProfileViewModel
 import com.example.wrofit.ui.viewmodel.SleepViewModel
@@ -51,6 +57,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun WroFitApp() {
+    val homeViewModel: HomeViewModel = viewModel()
     val navigationViewModel: NavigationViewModel = viewModel()
     val foodViewModel: FoodViewModel = viewModel()
     val sleepViewModel: SleepViewModel = viewModel()
@@ -68,7 +75,7 @@ fun WroFitApp() {
                 .safeDrawingPadding()
         ) {
             when (navigationViewModel.selectedTab) {
-                0 -> HomeScreen()
+                0 -> HomeScreen(homeViewModel)
                 1 -> FoodScreen(foodViewModel)
                 2 -> SleepScreen(sleepViewModel)
                 3 -> ExerciseScreen(exerciseViewModel)
@@ -79,7 +86,7 @@ fun WroFitApp() {
 }
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(viewModel: HomeViewModel) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("WroFit", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
         Text("Witaj w aplikacji WroFit!", fontSize = 20.sp, color = Color.Gray)
@@ -89,18 +96,94 @@ fun HomeScreen() {
         Spacer(Modifier.height(24.dp))
         Text("Poradniki", fontWeight = FontWeight.Bold, fontSize = 22.sp)
 
-        TutorialCard("Ćwicz poprawnie", "Zobacz film instruktażowy")
+        TutorialCard("Ćwicz poprawnie", "Zobacz film instruktażowy", onClick = viewModel::showTutorialVideo)
         TutorialCard("Sprawdź poprawne pozycje", "Zobacz galerię pozycji")
+    }
+
+    if (viewModel.isTutorialVideoVisible) {
+        TutorialVideoDialog(onDismiss = viewModel::hideTutorialVideo)
     }
 }
 
 @Composable
-fun TutorialCard(title: String, buttonText: String) {
+fun TutorialCard(title: String, buttonText: String, onClick: () -> Unit = {}) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), shape = RoundedCornerShape(12.dp), backgroundColor = Color(0xFFE0E0E0)) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(title, fontWeight = FontWeight.Medium)
-            Button(onClick = {}, colors = ButtonDefaults.buttonColors(backgroundColor = Color.Black), shape = RoundedCornerShape(8.dp)) {
+            Button(onClick = onClick, colors = ButtonDefaults.buttonColors(backgroundColor = Color.Black), shape = RoundedCornerShape(8.dp)) {
                 Text(buttonText, color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+fun TutorialVideoDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val videoResourceId = remember {
+        context.resources.getIdentifier("home_tutorial_video", "raw", context.packageName)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Film instruktażowy",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onDismiss) {
+                        Text("Zamknij", color = Color.White)
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (videoResourceId != 0) {
+                        AndroidView(
+                            factory = { viewContext ->
+                                VideoView(viewContext).apply {
+                                    val mediaController = MediaController(viewContext)
+                                    mediaController.setAnchorView(this)
+                                    setMediaController(mediaController)
+                                    setVideoPath("android.resource://${viewContext.packageName}/$videoResourceId")
+                                    setOnPreparedListener { player ->
+                                        player.isLooping = false
+                                        start()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            "Nie znaleziono pliku filmu. Dodaj plik `home_tutorial_video.mp4` do folderu `app/src/main/res/raw`.",
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
     }
