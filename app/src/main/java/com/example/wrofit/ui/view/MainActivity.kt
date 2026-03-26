@@ -1,4 +1,4 @@
-package com.example.wrofit.ui.view
+﻿package com.example.wrofit.ui.view
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -52,18 +52,10 @@ fun WroFitApp(viewModel: FoodViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
     val entries by viewModel.allEntries.observeAsState(initial = emptyList())
     val totalCalories by viewModel.totalCalories.observeAsState(initial = 0.0)
-    var showFoodDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
             CustomBottomNavigation(selectedTab) { selectedTab = it }
-        },
-        floatingActionButton = {
-            if (selectedTab == 1) {
-                FloatingActionButton(onClick = { showFoodDialog = true }, backgroundColor = Color(0xFF4CAF50)) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
-                }
-            }
         }
     ) { padding ->
         Box(
@@ -80,20 +72,8 @@ fun WroFitApp(viewModel: FoodViewModel) {
             }
         }
     }
-
-    if (showFoodDialog) {
-        AddFoodDialog(
-            onDismiss = { showFoodDialog = false },
-            onConfirm = { name, kcal, type ->
-                val date = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date())
-                viewModel.insert(FoodEntry(mealName = name, calories = kcal, mealType = type, date = date))
-                showFoodDialog = false
-            }
-        )
-    }
 }
 
-// --- 1. HOME SCREEN [cite: 22, 23, 24, 25, 26, 27] ---
 @Composable
 fun HomeScreen() {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -124,17 +104,209 @@ fun TutorialCard(title: String, buttonText: String) {
 
 @Composable
 fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text("Dziennik żywieniowy", modifier = Modifier.padding(16.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Card(modifier = Modifier.fillMaxWidth().padding(16.dp), backgroundColor = Color(0xFFF1F8E9)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Dzisiejsze kalorie: ${total.toInt()} kcal", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-            }
-        }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(entries) { FoodRow(it) { viewModel.delete(it) } }
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    val inputFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+    val polishFormatter = remember { SimpleDateFormat("EEEE, d MMMM", Locale("pl", "PL")) }
+    var selectedDate by remember { mutableStateOf(inputFormatter.format(calendar.time)) }
+    var breakfastExpanded by remember { mutableStateOf(true) }
+    var lunchExpanded by remember { mutableStateOf(false) }
+    var dinnerExpanded by remember { mutableStateOf(false) }
+    var breakfastKcal1 by remember { mutableStateOf("") }
+    var breakfastKcal2 by remember { mutableStateOf("") }
+    var breakfastKcal3 by remember { mutableStateOf("") }
+    var lunchKcal1 by remember { mutableStateOf("") }
+    var lunchKcal2 by remember { mutableStateOf("") }
+    var lunchKcal3 by remember { mutableStateOf("") }
+    var dinnerKcal1 by remember { mutableStateOf("") }
+    var dinnerKcal2 by remember { mutableStateOf("") }
+    var dinnerKcal3 by remember { mutableStateOf("") }
+
+    val mealDateLabel = remember(selectedDate) {
+        runCatching { inputFormatter.parse(selectedDate) }
+            .getOrNull()
+            ?.let { "[ ${polishFormatter.format(it).uppercase(Locale("pl", "PL"))} ]" }
+            ?: ""
+    }
+
+    val openDatePicker = {
+        runCatching { inputFormatter.parse(selectedDate) }
+            .getOrNull()
+            ?.let { calendar.time = it }
+
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                selectedDate = inputFormatter.format(calendar.time)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            "Wprowadź datę posiłku",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp, bottom = 12.dp),
+            fontSize = 18.sp
+        )
+        OutlinedTextField(
+            value = selectedDate,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Data") },
+            trailingIcon = {
+                IconButton(onClick = openDatePicker) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Wybierz datę")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Divider(
+            modifier = Modifier.padding(top = 16.dp),
+            color = Color.Black,
+            thickness = 2.dp
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 22.dp)
+        ) {
+            MealSectionCard(
+                title = "Śniadanie",
+                expanded = breakfastExpanded,
+                onToggle = { breakfastExpanded = !breakfastExpanded },
+                values = listOf(breakfastKcal1, breakfastKcal2, breakfastKcal3),
+                onValueChange = { index, value ->
+                    when (index) {
+                        0 -> breakfastKcal1 = value
+                        1 -> breakfastKcal2 = value
+                        else -> breakfastKcal3 = value
+                    }
+                },
+                dateLabel = mealDateLabel
+            )
+            Spacer(Modifier.height(28.dp))
+            MealSectionCard(
+                title = "Obiad",
+                expanded = lunchExpanded,
+                onToggle = { lunchExpanded = !lunchExpanded },
+                values = listOf(lunchKcal1, lunchKcal2, lunchKcal3),
+                onValueChange = { index, value ->
+                    when (index) {
+                        0 -> lunchKcal1 = value
+                        1 -> lunchKcal2 = value
+                        else -> lunchKcal3 = value
+                    }
+                },
+                dateLabel = mealDateLabel
+            )
+            Spacer(Modifier.height(12.dp))
+            MealSectionCard(
+                title = "Kolacja",
+                expanded = dinnerExpanded,
+                onToggle = { dinnerExpanded = !dinnerExpanded },
+                values = listOf(dinnerKcal1, dinnerKcal2, dinnerKcal3),
+                onValueChange = { index, value ->
+                    when (index) {
+                        0 -> dinnerKcal1 = value
+                        1 -> dinnerKcal2 = value
+                        else -> dinnerKcal3 = value
+                    }
+                },
+                dateLabel = mealDateLabel
+            )
         }
     }
+}
+
+@Composable
+fun MealSectionCard(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    values: List<String>,
+    onValueChange: (Int, String) -> Unit,
+    dateLabel: String
+) {
+    Column {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, Color(0xFFD6D6D6)),
+            color = Color.White,
+            elevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 16.sp
+                )
+                Icon(
+                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            }
+        }
+
+        if (expanded) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                dateLabel,
+                modifier = Modifier.fillMaxWidth(),
+                fontSize = 14.sp
+            )
+            Divider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                thickness = 1.dp
+            )
+            values.forEachIndexed { index, value ->
+                KcalInputRow(
+                    label = "Posiłek ${index + 1}:",
+                    value = value,
+                    onValueChange = { onValueChange(index, it) }
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            Divider(
+                modifier = Modifier.padding(top = 10.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                thickness = 1.dp
+            )
+        }
+    }
+}
+
+@Composable
+fun KcalInputRow(label: String, value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> onValueChange(input.filter { it.isDigit() }) },
+        label = { Text(label) },
+        placeholder = { Text("X kcal") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    )
 }
 
 @Composable
@@ -567,3 +739,4 @@ fun AddFoodDialog(onDismiss: () -> Unit, onConfirm: (String, Double, String) -> 
         confirmButton = { Button(onClick = { onConfirm(name, kcal.toDoubleOrNull() ?: 0.0, type) }) { Text("DODAJ") } }
     )
 }
+
