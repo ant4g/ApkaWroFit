@@ -11,6 +11,9 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.viewinterop.AndroidView
@@ -23,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -97,11 +101,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
         Text("Poradniki", fontWeight = FontWeight.Bold, fontSize = 22.sp)
 
         TutorialCard("Ćwicz poprawnie", "Zobacz film instruktażowy", onClick = viewModel::showTutorialVideo)
-        TutorialCard("Sprawdź poprawne pozycje", "Zobacz galerię pozycji")
+        TutorialCard("Sprawdź poprawne pozycje", "Zobacz galerię pozycji", onClick = viewModel::showPositionsGallery)
     }
 
     if (viewModel.isTutorialVideoVisible) {
         TutorialVideoDialog(onDismiss = viewModel::hideTutorialVideo)
+    }
+
+    if (viewModel.isPositionsGalleryVisible) {
+        PositionsGalleryDialog(onDismiss = viewModel::hidePositionsGallery)
     }
 }
 
@@ -183,6 +191,126 @@ fun TutorialVideoDialog(onDismiss: () -> Unit) {
                             color = Color.White
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+data class GalleryItem(
+    val title: String,
+    val drawableName: String
+)
+
+@Composable
+fun PositionsGalleryDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val galleryItems = remember {
+        listOf(
+            GalleryItem("Burpees", "home_position_1"),
+            GalleryItem("Deska", "home_position_2"),
+            GalleryItem("Mostek biodrowy", "home_position_3"),
+            GalleryItem("Pajacyki", "home_position_4"),
+            GalleryItem("Pompki", "home_position_5"),
+            GalleryItem("Przysiad szeroki", "home_position_6"),
+            GalleryItem("Przysiady", "home_position_7"),
+            GalleryItem("Rowerek", "home_position_8"),
+            GalleryItem("Russian twist", "home_position_9"),
+            GalleryItem("Superman", "home_position_10"),
+            GalleryItem("Wspinaczka", "home_position_11"),
+            GalleryItem("Trucht w miejscu", "home_position_12"),
+            GalleryItem("Wykroki", "home_position_13"),
+            GalleryItem("Wznoszenie nóg", "home_position_14")
+        )
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF4F4F4))
+                .padding(12.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Galeria pozycji",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onDismiss) {
+                        Text("Zamknij")
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    gridItems(galleryItems) { item ->
+                        GalleryImageCard(item = item, context = context)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GalleryImageCard(item: GalleryItem, context: android.content.Context) {
+    val drawableId = remember(item.drawableName) {
+        context.resources.getIdentifier(item.drawableName, "drawable", context.packageName)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = 3.dp,
+        backgroundColor = Color.White
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = item.title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFECECEC))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(Color(0xFFF7F7F7)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (drawableId != 0) {
+                    Image(
+                        painter = painterResource(id = drawableId),
+                        contentDescription = item.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = "Dodaj obraz:\n${item.drawableName}.png",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
