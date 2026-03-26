@@ -15,7 +15,6 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,7 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wrofit.data.model.FoodEntry
+import com.example.wrofit.ui.viewmodel.ExerciseViewModel
 import com.example.wrofit.ui.viewmodel.FoodViewModel
+import com.example.wrofit.ui.viewmodel.NavigationViewModel
+import com.example.wrofit.ui.viewmodel.ProfileViewModel
+import com.example.wrofit.ui.viewmodel.SleepViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,8 +42,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF8F9FA)) {
-                    val foodViewModel: FoodViewModel = viewModel()
-                    WroFitApp(foodViewModel)
+                    WroFitApp()
                 }
             }
         }
@@ -48,14 +50,16 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WroFitApp(viewModel: FoodViewModel) {
-    var selectedTab by remember { mutableStateOf(0) }
-    val entries by viewModel.allEntries.observeAsState(initial = emptyList())
-    val totalCalories by viewModel.totalCalories.observeAsState(initial = 0.0)
+fun WroFitApp() {
+    val navigationViewModel: NavigationViewModel = viewModel()
+    val foodViewModel: FoodViewModel = viewModel()
+    val sleepViewModel: SleepViewModel = viewModel()
+    val exerciseViewModel: ExerciseViewModel = viewModel()
+    val profileViewModel: ProfileViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
-            CustomBottomNavigation(selectedTab) { selectedTab = it }
+            CustomBottomNavigation(navigationViewModel.selectedTab, navigationViewModel::updateSelectedTab)
         }
     ) { padding ->
         Box(
@@ -63,12 +67,12 @@ fun WroFitApp(viewModel: FoodViewModel) {
                 .padding(padding)
                 .safeDrawingPadding()
         ) {
-            when (selectedTab) {
+            when (navigationViewModel.selectedTab) {
                 0 -> HomeScreen()
-                1 -> FoodScreen(entries, totalCalories, viewModel)
-                2 -> SleepScreen()
-                3 -> ExerciseScreen()
-                4 -> ProfileScreen()
+                1 -> FoodScreen(foodViewModel)
+                2 -> SleepScreen(sleepViewModel)
+                3 -> ExerciseScreen(exerciseViewModel)
+                4 -> ProfileScreen(profileViewModel)
             }
         }
     }
@@ -103,38 +107,28 @@ fun TutorialCard(title: String, buttonText: String) {
 }
 
 @Composable
-fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel) {
+fun FoodScreen(viewModel: FoodViewModel) {
+    val uiState = viewModel.uiState
     val context = LocalContext.current
     val calendar = remember { Calendar.getInstance() }
     val inputFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
     val polishFormatter = remember { SimpleDateFormat("EEEE, d MMMM", Locale("pl", "PL")) }
-    var selectedDate by remember { mutableStateOf(inputFormatter.format(calendar.time)) }
-    var breakfastExpanded by remember { mutableStateOf(true) }
-    var lunchExpanded by remember { mutableStateOf(false) }
-    var dinnerExpanded by remember { mutableStateOf(false) }
-    var breakfastKcal1 by remember { mutableStateOf("") }
-    var breakfastKcal2 by remember { mutableStateOf("") }
-    var breakfastKcal3 by remember { mutableStateOf("") }
-    var lunchKcal1 by remember { mutableStateOf("") }
-    var lunchKcal2 by remember { mutableStateOf("") }
-    var lunchKcal3 by remember { mutableStateOf("") }
-    var dinnerKcal1 by remember { mutableStateOf("") }
-    var dinnerKcal2 by remember { mutableStateOf("") }
-    var dinnerKcal3 by remember { mutableStateOf("") }
 
-    val mealDateLabel = remember(selectedDate) {
-        runCatching { inputFormatter.parse(selectedDate) }
+    LaunchedEffect(Unit) {
+        if (uiState.selectedDate.isBlank()) {
+            viewModel.setSelectedDate(inputFormatter.format(calendar.time))
+        }
+    }
+
+    val mealDateLabel = remember(uiState.selectedDate) {
+        runCatching { inputFormatter.parse(uiState.selectedDate) }
             .getOrNull()
             ?.let { "[ ${polishFormatter.format(it).uppercase(Locale("pl", "PL"))} ]" }
             ?: ""
     }
-    val breakfastTotal = listOf(breakfastKcal1, breakfastKcal2, breakfastKcal3).sumOf { it.toIntOrNull() ?: 0 }
-    val lunchTotal = listOf(lunchKcal1, lunchKcal2, lunchKcal3).sumOf { it.toIntOrNull() ?: 0 }
-    val dinnerTotal = listOf(dinnerKcal1, dinnerKcal2, dinnerKcal3).sumOf { it.toIntOrNull() ?: 0 }
-    val overallTotal = breakfastTotal + lunchTotal + dinnerTotal
 
     val openDatePicker = {
-        runCatching { inputFormatter.parse(selectedDate) }
+        runCatching { inputFormatter.parse(uiState.selectedDate) }
             .getOrNull()
             ?.let { calendar.time = it }
 
@@ -142,7 +136,7 @@ fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel
             context,
             { _, year, month, dayOfMonth ->
                 calendar.set(year, month, dayOfMonth)
-                selectedDate = inputFormatter.format(calendar.time)
+                viewModel.setSelectedDate(inputFormatter.format(calendar.time))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -162,18 +156,29 @@ fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel
                 .padding(top = 20.dp, bottom = 12.dp),
             fontSize = 18.sp
         )
-        OutlinedTextField(
-            value = selectedDate,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Data") },
-            trailingIcon = {
-                IconButton(onClick = openDatePicker) {
-                    Icon(Icons.Default.DateRange, contentDescription = "Wybierz datę")
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = openDatePicker),
+            shape = RoundedCornerShape(4.dp),
+            border = BorderStroke(1.dp, Color(0xFFBDBDBD)),
+            color = Color.White,
+            elevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (uiState.selectedDate.isBlank()) "Data" else uiState.selectedDate,
+                    modifier = Modifier.weight(1f),
+                    color = if (uiState.selectedDate.isBlank()) Color.Gray else Color.Black
+                )
+                Icon(Icons.Default.DateRange, contentDescription = "Wybierz datę")
+            }
+        }
         Divider(
             modifier = Modifier.padding(top = 16.dp),
             color = Color.Black,
@@ -187,56 +192,44 @@ fun FoodScreen(entries: List<FoodEntry>, total: Double, viewModel: FoodViewModel
         ) {
             MealSectionCard(
                 title = "Śniadanie",
-                expanded = breakfastExpanded,
-                onToggle = { breakfastExpanded = !breakfastExpanded },
-                values = listOf(breakfastKcal1, breakfastKcal2, breakfastKcal3),
+                expanded = uiState.breakfastExpanded,
+                onToggle = viewModel::toggleBreakfast,
+                values = uiState.breakfastCalories,
                 onValueChange = { index, value ->
-                    when (index) {
-                        0 -> breakfastKcal1 = value
-                        1 -> breakfastKcal2 = value
-                        else -> breakfastKcal3 = value
-                    }
+                    viewModel.setBreakfastCalories(index, value)
                 },
                 dateLabel = mealDateLabel
             )
             Spacer(Modifier.height(28.dp))
             MealSectionCard(
                 title = "Obiad",
-                expanded = lunchExpanded,
-                onToggle = { lunchExpanded = !lunchExpanded },
-                values = listOf(lunchKcal1, lunchKcal2, lunchKcal3),
+                expanded = uiState.lunchExpanded,
+                onToggle = viewModel::toggleLunch,
+                values = uiState.lunchCalories,
                 onValueChange = { index, value ->
-                    when (index) {
-                        0 -> lunchKcal1 = value
-                        1 -> lunchKcal2 = value
-                        else -> lunchKcal3 = value
-                    }
+                    viewModel.setLunchCalories(index, value)
                 },
                 dateLabel = mealDateLabel
             )
             Spacer(Modifier.height(12.dp))
             MealSectionCard(
                 title = "Kolacja",
-                expanded = dinnerExpanded,
-                onToggle = { dinnerExpanded = !dinnerExpanded },
-                values = listOf(dinnerKcal1, dinnerKcal2, dinnerKcal3),
+                expanded = uiState.dinnerExpanded,
+                onToggle = viewModel::toggleDinner,
+                values = uiState.dinnerCalories,
                 onValueChange = { index, value ->
-                    when (index) {
-                        0 -> dinnerKcal1 = value
-                        1 -> dinnerKcal2 = value
-                        else -> dinnerKcal3 = value
-                    }
+                    viewModel.setDinnerCalories(index, value)
                 },
                 dateLabel = mealDateLabel
             )
             Spacer(Modifier.height(24.dp))
-            Text("Suma Śniadanie: $breakfastTotal kcal", fontSize = 16.sp)
+            Text("Suma Śniadanie: ${viewModel.breakfastTotal()} kcal", fontSize = 16.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Suma Obiad: $lunchTotal kcal", fontSize = 16.sp)
+            Text("Suma Obiad: ${viewModel.lunchTotal()} kcal", fontSize = 16.sp)
             Spacer(Modifier.height(8.dp))
-            Text("Suma Kolacja: $dinnerTotal kcal", fontSize = 16.sp)
+            Text("Suma Kolacja: ${viewModel.dinnerTotal()} kcal", fontSize = 16.sp)
             Spacer(Modifier.height(14.dp))
-            Text("Suma całościowa: $overallTotal kcal", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("Suma całościowa: ${viewModel.overallTotal()} kcal", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -322,17 +315,20 @@ fun KcalInputRow(label: String, value: String, onValueChange: (String) -> Unit) 
 }
 
 @Composable
-fun SleepScreen() {
+fun SleepScreen(viewModel: SleepViewModel) {
+    val uiState = viewModel.uiState
     val context = LocalContext.current
     val calendar = remember { Calendar.getInstance() }
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
-    var selectedDate by remember { mutableStateOf(dateFormatter.format(calendar.time)) }
-    var sleepTime by remember { mutableStateOf("") }
-    var wakeTime by remember { mutableStateOf("") }
-    var difficulties by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        if (uiState.selectedDate.isBlank()) {
+            viewModel.setSelectedDate(dateFormatter.format(calendar.time))
+        }
+    }
 
     val openDatePicker = {
-        runCatching { dateFormatter.parse(selectedDate) }
+        runCatching { dateFormatter.parse(uiState.selectedDate) }
             .getOrNull()
             ?.let { calendar.time = it }
 
@@ -340,7 +336,7 @@ fun SleepScreen() {
             context,
             { _, year, month, dayOfMonth ->
                 calendar.set(year, month, dayOfMonth)
-                selectedDate = dateFormatter.format(calendar.time)
+                viewModel.setSelectedDate(dateFormatter.format(calendar.time))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -364,9 +360,9 @@ fun SleepScreen() {
         ).show()
     }
 
-    val sleepDurationText = remember(sleepTime, wakeTime) {
-        val sleepParts = sleepTime.split(":")
-        val wakeParts = wakeTime.split(":")
+    val sleepDurationText = remember(uiState.sleepTime, uiState.wakeTime) {
+        val sleepParts = uiState.sleepTime.split(":")
+        val wakeParts = uiState.wakeTime.split(":")
         val sleepHour = sleepParts.getOrNull(0)?.toIntOrNull()
         val sleepMinute = sleepParts.getOrNull(1)?.toIntOrNull()
         val wakeHour = wakeParts.getOrNull(0)?.toIntOrNull()
@@ -391,7 +387,7 @@ fun SleepScreen() {
         Text("Harmonogram snu", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
-            value = selectedDate,
+            value = uiState.selectedDate,
             onValueChange = {},
             readOnly = true,
             label = { Text("Data snu") },
@@ -404,24 +400,24 @@ fun SleepScreen() {
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
-            value = sleepTime,
+            value = uiState.sleepTime,
             onValueChange = {},
             readOnly = true,
             label = { Text("Godzina zaśnięcia") },
             trailingIcon = {
-                IconButton(onClick = { openTimePicker(sleepTime) { sleepTime = it } }) {
+                IconButton(onClick = { openTimePicker(uiState.sleepTime) { viewModel.setSleepTime(it) } }) {
                     Icon(Icons.Default.AccessTime, contentDescription = "Wybierz godzinę zaśnięcia")
                 }
             },
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
-            value = wakeTime,
+            value = uiState.wakeTime,
             onValueChange = {},
             readOnly = true,
             label = { Text("Godzina przebudzenia") },
             trailingIcon = {
-                IconButton(onClick = { openTimePicker(wakeTime) { wakeTime = it } }) {
+                IconButton(onClick = { openTimePicker(uiState.wakeTime) { viewModel.setWakeTime(it) } }) {
                     Icon(Icons.Default.AccessTime, contentDescription = "Wybierz godzinę przebudzenia")
                 }
             },
@@ -430,8 +426,8 @@ fun SleepScreen() {
         Spacer(Modifier.height(16.dp))
         Text("Twoja ilość snu wynosi: $sleepDurationText", fontWeight = FontWeight.Bold)
         OutlinedTextField(
-            value = difficulties,
-            onValueChange = { difficulties = it },
+            value = uiState.difficulties,
+            onValueChange = { viewModel.setDifficulties(it) },
             label = { Text("Zaistniałe trudności") },
             modifier = Modifier.fillMaxWidth()
         )
@@ -439,16 +435,20 @@ fun SleepScreen() {
 }
 
 @Composable
-fun ExerciseScreen() {
-    val exercises = listOf("Pajacyki", "Przysiady", "Pompki", "Deska", "Wykroki", "Burpees")
+fun ExerciseScreen(viewModel: ExerciseViewModel) {
+    val uiState = viewModel.uiState
     val context = LocalContext.current
     val calendar = remember { Calendar.getInstance() }
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
-    var selectedDate by remember { mutableStateOf(dateFormatter.format(calendar.time)) }
-    var checkedExercises by remember { mutableStateOf(setOf<String>()) }
+
+    LaunchedEffect(Unit) {
+        if (uiState.selectedDate.isBlank()) {
+            viewModel.setSelectedDate(dateFormatter.format(calendar.time))
+        }
+    }
 
     val openDatePicker = {
-        runCatching { dateFormatter.parse(selectedDate) }
+        runCatching { dateFormatter.parse(uiState.selectedDate) }
             .getOrNull()
             ?.let { calendar.time = it }
 
@@ -456,7 +456,7 @@ fun ExerciseScreen() {
             context,
             { _, year, month, dayOfMonth ->
                 calendar.set(year, month, dayOfMonth)
-                selectedDate = dateFormatter.format(calendar.time)
+                viewModel.setSelectedDate(dateFormatter.format(calendar.time))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -469,7 +469,7 @@ fun ExerciseScreen() {
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                value = selectedDate,
+                value = uiState.selectedDate,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Data treningu") },
@@ -481,7 +481,7 @@ fun ExerciseScreen() {
                 modifier = Modifier.weight(1f)
             )
             Spacer(Modifier.width(8.dp))
-            OutlinedButton(onClick = { checkedExercises = emptySet() }) {
+            OutlinedButton(onClick = viewModel::resetCheckedExercises) {
                 Icon(Icons.Default.Refresh, contentDescription = "Resetuj zaznaczenia")
                 Spacer(Modifier.width(6.dp))
                 Text("Reset")
@@ -489,16 +489,12 @@ fun ExerciseScreen() {
         }
         Spacer(Modifier.height(12.dp))
         LazyColumn {
-            items(exercises) { ex ->
+            items(viewModel.exercises) { ex ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
                     Checkbox(
-                        checked = ex in checkedExercises,
+                        checked = ex in uiState.checkedExercises,
                         onCheckedChange = { isChecked ->
-                            checkedExercises = if (isChecked) {
-                                checkedExercises + ex
-                            } else {
-                                checkedExercises - ex
-                            }
+                            viewModel.toggleExercise(ex, isChecked)
                         }
                     )
                     Text(ex, modifier = Modifier.padding(start = 8.dp))
@@ -510,27 +506,22 @@ fun ExerciseScreen() {
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(viewModel: ProfileViewModel) {
+    val uiState = viewModel.uiState
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val calendar = remember { Calendar.getInstance() }
-    var selectedDate by remember {
-        mutableStateOf(SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(calendar.time))
-    }
-    var fullName by remember { mutableStateOf("") }
-    var gender by remember { mutableStateOf("") }
-    var weight by remember { mutableStateOf("") }
-    var height by remember { mutableStateOf("") }
-    var goal by remember { mutableStateOf("") }
-    var activityLevel by remember { mutableStateOf("") }
-    var genderExpanded by remember { mutableStateOf(false) }
-    var activityExpanded by remember { mutableStateOf(false) }
 
     val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
-    val genderOptions = listOf("Kobieta", "Mężczyzna", "Wolę nie podawać")
-    val activityOptions = listOf("Wysoki", "Średni", "Niski", "Brak - siedzący")
+
+    LaunchedEffect(Unit) {
+        if (uiState.selectedDate.isBlank()) {
+            viewModel.setSelectedDate(dateFormatter.format(calendar.time))
+        }
+    }
+
     val openDatePicker = {
-        runCatching { dateFormatter.parse(selectedDate) }
+        runCatching { dateFormatter.parse(uiState.selectedDate) }
             .getOrNull()
             ?.let { calendar.time = it }
 
@@ -538,7 +529,7 @@ fun ProfileScreen() {
             context,
             { _, year, month, dayOfMonth ->
                 calendar.set(year, month, dayOfMonth)
-                selectedDate = dateFormatter.format(calendar.time)
+                viewModel.setSelectedDate(dateFormatter.format(calendar.time))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -554,7 +545,7 @@ fun ProfileScreen() {
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
-                        value = selectedDate,
+                        value = uiState.selectedDate,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Data urodzenia") },
@@ -569,7 +560,7 @@ fun ProfileScreen() {
                     IconButton(
                         onClick = {
                             calendar.time = Date()
-                            selectedDate = dateFormatter.format(calendar.time)
+                            viewModel.setSelectedDate(dateFormatter.format(calendar.time))
                         }
                     ) {
                         Icon(Icons.Default.Today, contentDescription = "Ustaw dzisiejszą datę")
@@ -584,40 +575,35 @@ fun ProfileScreen() {
         Text("Informacje o Tobie", fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
         OutlinedTextField(
-            value = fullName,
-            onValueChange = { input ->
-                if (input.all { it.isLetter() || it.isWhitespace() }) {
-                    fullName = input
-                }
-            },
+            value = uiState.fullName,
+            onValueChange = viewModel::setFullName,
             label = { Text("Imię i nazwisko") },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
 
         ExposedDropdownMenuBox(
-            expanded = genderExpanded,
+            expanded = uiState.genderExpanded,
             onExpandedChange = {
                 focusManager.clearFocus()
-                genderExpanded = !genderExpanded
+                viewModel.setGenderExpanded(!uiState.genderExpanded)
             },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         ) {
             OutlinedTextField(
-                value = gender,
+                value = uiState.gender,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Płeć") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = uiState.genderExpanded) },
                 modifier = Modifier.fillMaxWidth()
             )
             ExposedDropdownMenu(
-                expanded = genderExpanded,
-                onDismissRequest = { genderExpanded = false }
+                expanded = uiState.genderExpanded,
+                onDismissRequest = { viewModel.setGenderExpanded(false) }
             ) {
-                genderOptions.forEach { option ->
+                viewModel.genderOptions.forEach { option ->
                     DropdownMenuItem(onClick = {
-                        gender = option
-                        genderExpanded = false
+                        viewModel.setGender(option)
                     }) {
                         Text(option)
                     }
@@ -626,64 +612,51 @@ fun ProfileScreen() {
         }
 
         OutlinedTextField(
-            value = weight,
-            onValueChange = { input ->
-                if (input.all { it.isDigit() }) {
-                    weight = input
-                }
-            },
+            value = uiState.weight,
+            onValueChange = viewModel::setWeight,
             label = { Text("Waga") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
 
         OutlinedTextField(
-            value = height,
-            onValueChange = { input ->
-                if (input.all { it.isDigit() }) {
-                    height = input
-                }
-            },
+            value = uiState.height,
+            onValueChange = viewModel::setHeight,
             label = { Text("Wzrost") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
 
         OutlinedTextField(
-            value = goal,
-            onValueChange = { input ->
-                if (input.all { it.isLetter() || it.isWhitespace() }) {
-                    goal = input
-                }
-            },
+            value = uiState.goal,
+            onValueChange = viewModel::setGoal,
             label = { Text("Cel") },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
 
         ExposedDropdownMenuBox(
-            expanded = activityExpanded,
+            expanded = uiState.activityExpanded,
             onExpandedChange = {
                 focusManager.clearFocus()
-                activityExpanded = !activityExpanded
+                viewModel.setActivityExpanded(!uiState.activityExpanded)
             },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         ) {
             OutlinedTextField(
-                value = activityLevel,
+                value = uiState.activityLevel,
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Poziom aktywności") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = activityExpanded) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = uiState.activityExpanded) },
                 modifier = Modifier.fillMaxWidth()
             )
             ExposedDropdownMenu(
-                expanded = activityExpanded,
-                onDismissRequest = { activityExpanded = false }
+                expanded = uiState.activityExpanded,
+                onDismissRequest = { viewModel.setActivityExpanded(false) }
             ) {
-                activityOptions.forEach { option ->
+                viewModel.activityOptions.forEach { option ->
                     DropdownMenuItem(onClick = {
-                        activityLevel = option
-                        activityExpanded = false
+                        viewModel.setActivityLevel(option)
                     }) {
                         Text(option)
                     }
@@ -730,24 +703,4 @@ fun FoodRow(entry: FoodEntry, onDelete: () -> Unit) {
             IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
         }
     }
-}
-
-@Composable
-fun AddFoodDialog(onDismiss: () -> Unit, onConfirm: (String, Double, String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var kcal by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Dodaj posiłek") },
-        text = {
-            Column {
-                TextField(name, { name = it }, label = { Text("Nazwa") })
-                TextField(kcal, { kcal = it }, label = { Text("Kalorie") })
-                TextField(type, { type = it }, label = { Text("Typ (np. Obiad)") })
-            }
-        },
-        confirmButton = { Button(onClick = { onConfirm(name, kcal.toDoubleOrNull() ?: 0.0, type) }) { Text("DODAJ") } }
-    )
 }
