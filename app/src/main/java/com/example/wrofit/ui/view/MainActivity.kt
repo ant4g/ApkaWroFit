@@ -1,5 +1,6 @@
 package com.example.wrofit.ui.view
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -164,12 +166,59 @@ fun ExerciseScreen() {
 // --- 5. PROFILE SCREEN  ---
 @Composable
 fun ProfileScreen() {
+    val context = LocalContext.current
+    val calendar = remember { Calendar.getInstance() }
+    var selectedDate by remember {
+        mutableStateOf(SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(calendar.time))
+    }
+
+    val dateFormatter = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
+    val openDatePicker = {
+        runCatching { dateFormatter.parse(selectedDate) }
+            .getOrNull()
+            ?.let { calendar.time = it }
+
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                selectedDate = dateFormatter.format(calendar.time)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Twój profil", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Text("Wprowadź datę urodzenia")
-                Text("Data: --.--.----", color = Color.Gray)
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = selectedDate,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Data urodzenia") },
+                        trailingIcon = {
+                            IconButton(onClick = openDatePicker) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Wybierz datę z kalendarza")
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            calendar.time = Date()
+                            selectedDate = dateFormatter.format(calendar.time)
+                        }
+                    ) {
+                        Icon(Icons.Default.Today, contentDescription = "Ustaw dzisiejszą datę")
+                    }
+                }
             }
             Box(modifier = Modifier.size(100.dp).background(Color.LightGray), contentAlignment = Alignment.Center) {
                 Text("Zdjęcie", fontSize = 12.sp)
