@@ -276,34 +276,7 @@ Schemat:
 4. `TutorialVideoRepository` pobiera rekord filmu z `TutorialVideoDao`.
 5. UI zamienia `resourceName` na zasób w `res/raw` i odtwarza plik.
 
-## 12. Gdzie dodać zdjęcia i film
 
-### Zdjęcia
-
-Folder:
-
-- `E:\Apka_mobilna\ApkaWroFit\app\src\main\res\drawable`
-
-Nazwy plików muszą odpowiadać `drawableName` w rekordach galerii.
-
-### Film
-
-Folder:
-
-- `E:\Apka_mobilna\ApkaWroFit\app\src\main\res\raw`
-
-Nazwa pliku musi odpowiadać `resourceName` w rekordzie filmu.
-
-## 13. Ważne uwagi techniczne
-
-- Baza używa `fallbackToDestructiveMigration()`.
-- Seed konfiguracji filmu i galerii odbywa się z plików `assets`.
-- Projekt spełnia wymagania:
-  - `MVVM`,
-  - `Jetpack Compose`,
-  - `Room`,
-  - brak hardcodowania konfiguracji filmu i galerii w UI.
-
-## 14. Podsumowanie
+## 12. Podsumowanie
 
 WroFit jest aplikacją Android opartą o `MVVM`, `Jetpack Compose` i `Room`. Dane o galerii i filmie nie są zaszyte w UI, lecz ładowane z plików `assets` do bazy Room, a następnie odczytywane przez `ViewModel` i renderowane przez Compose.
