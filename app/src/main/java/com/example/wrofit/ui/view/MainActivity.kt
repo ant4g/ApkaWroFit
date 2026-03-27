@@ -107,7 +107,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     }
 
     if (viewModel.isTutorialVideoVisible) {
-        TutorialVideoDialog(onDismiss = viewModel::hideTutorialVideo)
+        TutorialVideoDialog(viewModel = viewModel, onDismiss = viewModel::hideTutorialVideo)
     }
 
     if (viewModel.isPositionsGalleryVisible) {
@@ -128,10 +128,13 @@ fun TutorialCard(title: String, buttonText: String, onClick: () -> Unit = {}) {
 }
 
 @Composable
-fun TutorialVideoDialog(onDismiss: () -> Unit) {
+fun TutorialVideoDialog(viewModel: HomeViewModel, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val videoResourceId = remember {
-        context.resources.getIdentifier("home_tutorial_video", "raw", context.packageName)
+    val tutorialVideo by viewModel.tutorialVideo.observeAsState(initial = null)
+    val videoResourceId = remember(tutorialVideo?.resourceName) {
+        tutorialVideo?.resourceName?.let { resourceName ->
+            context.resources.getIdentifier(resourceName, "raw", context.packageName)
+        } ?: 0
     }
 
     Dialog(
@@ -152,7 +155,7 @@ fun TutorialVideoDialog(onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Film instruktażowy",
+                        tutorialVideo?.title ?: "Film instruktażowy",
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -189,7 +192,7 @@ fun TutorialVideoDialog(onDismiss: () -> Unit) {
                         )
                     } else {
                         Text(
-                            "Nie znaleziono pliku filmu. Dodaj plik `home_tutorial_video.mp4` do folderu `app/src/main/res/raw`.",
+                            "Nie znaleziono konfiguracji filmu w bazie albo pliku w zasobach `res/raw`.",
                             color = Color.White
                         )
                     }
