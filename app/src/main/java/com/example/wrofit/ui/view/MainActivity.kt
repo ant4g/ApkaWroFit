@@ -14,6 +14,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,7 +27,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -35,8 +38,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.BottomNavigation
-import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.Checkbox
@@ -52,17 +53,17 @@ import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FlashOn
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +87,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -156,6 +158,7 @@ fun WroFitApp() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(padding)
         ) {
             when (navViewModel.selectedTab) {
@@ -172,23 +175,63 @@ fun WroFitApp() {
 @Composable
 fun CustomBottomNavigation(selected: Int, onSelected: (Int) -> Unit) {
     val items = listOf(
-        Triple("Home", Icons.Default.Home, 0),
-        Triple("Jedzenie", Icons.Default.Restaurant, 1),
-        Triple("Sen", Icons.Default.Bedtime, 2),
-        Triple("Ruch", Icons.Default.FitnessCenter, 3),
-        Triple("Profil", Icons.Default.Person, 4)
+        Triple("Główna", Icons.Outlined.Home, 0),
+        Triple("Jedzenie", Icons.Outlined.ShoppingCart, 1),
+        Triple("Sen", Icons.Outlined.DarkMode, 2),
+        Triple("Ćwiczenia", Icons.Outlined.FlashOn, 3),
+        Triple("Profil", Icons.Outlined.Person, 4)
     )
 
-    BottomNavigation(backgroundColor = Color.White, elevation = 10.dp) {
-        items.forEach { (label, icon, index) ->
-            BottomNavigationItem(
-                selected = selected == index,
-                onClick = { onSelected(index) },
-                icon = { Icon(icon, contentDescription = label) },
-                label = { Text(label) },
-                selectedContentColor = Color(0xFF1D4ED8),
-                unselectedContentColor = Color(0xFF64748B)
-            )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF5F7FB))
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color(0xFFF0EBEB))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { (label, icon, index) ->
+                val isSelected = selected == index
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isSelected) Color(0xFFFFFFFF) else Color.Transparent)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onSelected(index) }
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = if (isSelected) Color(0xFF222222) else Color(0xFF5B5B5B),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Text(
+                        text = label,
+                        color = if (isSelected) Color(0xFF222222) else Color(0xFF444444),
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
@@ -207,9 +250,10 @@ fun HomeScreen(viewModel: HomeViewModel, navViewModel: NavigationViewModel) {
         item {
             ScreenHeader(
                 title = "WroFit",
-                subtitle = "Twoje codzienne wsparcie zdrowych nawykow",
+                subtitle = "Twoje codzienne wsparcie zdrowych nawyków",
                 selectedDate = navViewModel.selectedDate,
-                onDateSelected = navViewModel::updateSelectedDate
+                onDateSelected = navViewModel::updateSelectedDate,
+                showDate = false
             )
         }
 
@@ -260,7 +304,7 @@ fun FoodScreen(viewModel: FoodViewModel, navViewModel: NavigationViewModel) {
         item {
             ScreenHeader(
                 title = "Kalorie",
-                subtitle = "Uzupelniaj posilki dla wybranego dnia",
+                subtitle = "Uzupełniaj posiłki dla wybranego dnia",
                 selectedDate = navViewModel.selectedDate,
                 onDateSelected = navViewModel::updateSelectedDate
             )
@@ -268,7 +312,7 @@ fun FoodScreen(viewModel: FoodViewModel, navViewModel: NavigationViewModel) {
 
         item {
             GoalInputCard(
-                title = "Max kalorii na dzien",
+                title = "Maks. kalorii na dzień",
                 value = uiState.dailyCalorieGoal,
                 suffix = "kcal",
                 onValueChange = viewModel::setDailyCalorieGoal
@@ -277,17 +321,17 @@ fun FoodScreen(viewModel: FoodViewModel, navViewModel: NavigationViewModel) {
 
         item {
             ProgressDonutCard(
-                title = "Postep kalorii",
+                title = "Postęp kalorii",
                 currentValue = totalCalories.toFloat(),
                 goalValue = calorieGoal.toFloat(),
                 primaryLabel = "$totalCalories kcal",
-                secondaryLabel = if (calorieGoal > 0) "Cel: $calorieGoal kcal" else "Ustaw max kalorii"
+                secondaryLabel = if (calorieGoal > 0) "Cel: $calorieGoal kcal" else "Ustaw maks. kalorii"
             )
         }
 
         item {
             MealSection(
-                title = "Sniadanie",
+                title = "Śniadanie",
                 items = uiState.breakfastItems,
                 expanded = uiState.breakfastExpanded,
                 total = viewModel.breakfastTotal(),
@@ -323,7 +367,7 @@ fun FoodScreen(viewModel: FoodViewModel, navViewModel: NavigationViewModel) {
 
         item {
             InfoCard(
-                title = "Laczna ilosc kalorii w ciagu dnia",
+                title = "Łączna ilość kalorii w ciągu dnia",
                 body = "$totalCalories kcal"
             )
         }
@@ -372,7 +416,7 @@ fun SleepScreen(viewModel: SleepViewModel, navViewModel: NavigationViewModel) {
         )
 
         ProgressDonutCard(
-            title = "Postep snu",
+            title = "Postęp snu",
             currentValue = sleptHours.toFloat(),
             goalValue = sleepGoal.toFloat(),
             primaryLabel = "${formatOneDecimal(sleptHours)} h",
@@ -380,7 +424,7 @@ fun SleepScreen(viewModel: SleepViewModel, navViewModel: NavigationViewModel) {
         )
 
         LabeledTextField(
-            label = "Trudnosci ze snem",
+            label = "Trudności ze snem",
             value = uiState.difficulties,
             onValueChange = viewModel::setDifficulties,
             modifier = Modifier.fillMaxWidth(),
@@ -405,13 +449,13 @@ fun ExerciseScreen(viewModel: ExerciseViewModel, navViewModel: NavigationViewMod
     ) {
         item {
             ScreenHeader(
-                title = "Aktywnosc",
-                subtitle = "Odhacz wykonane cwiczenia",
+                title = "Aktywność",
+                subtitle = "Odhacz wykonane ćwiczenia",
                 selectedDate = navViewModel.selectedDate,
                 onDateSelected = navViewModel::updateSelectedDate,
                 actionContent = {
                     HeaderSquareAction(
-                        label = "Wyczysc",
+                        label = "Wyczyść",
                         onClick = viewModel::resetCheckedExercises
                     )
                 }
@@ -486,26 +530,26 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Miejsce na zdjecie profilowe i podstawowe dane uzytkownika.",
+                        text = "Miejsce na zdjęcie profilowe i podstawowe dane użytkownika.",
                         color = Color(0xFF475569),
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(onClick = { photoPicker.launch("image/*") }) {
-                        Text("Dodaj zdjecie profilowe")
+                        Text("Dodaj zdjęcie profilowe")
                     }
                 }
             }
 
             LabeledTextField(
-                label = "Imie i nazwisko",
+                label = "Imię i nazwisko",
                 value = uiState.fullName,
                 onValueChange = viewModel::setFullName,
                 modifier = Modifier.fillMaxWidth()
             )
 
             ProfileDropdown(
-                label = "Plec",
+                label = "Płeć",
                 value = uiState.gender,
                 expanded = uiState.genderExpanded,
                 options = viewModel.genderOptions,
@@ -539,7 +583,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
             )
 
             ProfileDropdown(
-                label = "Poziom aktywnosci",
+                label = "Poziom aktywności",
                 value = uiState.activityLevel,
                 expanded = uiState.activityExpanded,
                 options = viewModel.activityOptions,
@@ -564,6 +608,7 @@ fun ScreenHeader(
     subtitle: String,
     selectedDate: String,
     onDateSelected: (String) -> Unit,
+    showDate: Boolean = true,
     actionContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -579,43 +624,49 @@ fun ScreenHeader(
             Text(text = title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
             Spacer(modifier = Modifier.height(6.dp))
             Text(text = subtitle, color = Color(0xFF475569))
-            Spacer(modifier = Modifier.height(14.dp))
-            val dateWeight = if (actionContent != null) 0.72f else 1f
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            if (showDate || actionContent != null) {
+                Spacer(modifier = Modifier.height(14.dp))
+                val dateWeight = if (actionContent != null) 0.72f else 1f
                 Row(
-                    modifier = Modifier
-                        .weight(dateWeight)
-                        .height(52.dp)
-                        .background(Color(0xFFE0E7FF), RoundedCornerShape(12.dp))
-                        .clickable {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    val parser = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-                                    val picked = Calendar.getInstance().apply {
-                                        set(year, month, dayOfMonth)
-                                    }
-                                    onDateSelected(parser.format(picked.time))
-                                },
-                                calendar.get(Calendar.YEAR),
-                                calendar.get(Calendar.MONTH),
-                                calendar.get(Calendar.DAY_OF_MONTH)
-                            ).show()
-                        }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color(0xFF1D4ED8))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(text = "Data: $selectedDate", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Medium)
-                }
+                    if (showDate) {
+                        Row(
+                            modifier = Modifier
+                                .weight(dateWeight)
+                                .height(52.dp)
+                                .background(Color(0xFFE0E7FF), RoundedCornerShape(12.dp))
+                                .clickable {
+                                    DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            val parser = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+                                            val picked = Calendar.getInstance().apply {
+                                                set(year, month, dayOfMonth)
+                                            }
+                                            onDateSelected(parser.format(picked.time))
+                                        },
+                                        calendar.get(Calendar.YEAR),
+                                        calendar.get(Calendar.MONTH),
+                                        calendar.get(Calendar.DAY_OF_MONTH)
+                                    ).show()
+                                }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Color(0xFF1D4ED8))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = "Data: $selectedDate", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Medium)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
 
-                if (actionContent != null) {
-                    actionContent()
+                    if (actionContent != null) {
+                        actionContent()
+                    }
                 }
             }
         }
@@ -760,7 +811,7 @@ fun TutorialCard(tutorialVideo: TutorialVideo?, onOpen: () -> Unit) {
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A))
             Spacer(modifier = Modifier.height(12.dp))
             Button(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-                Text("Otworz podglad")
+                Text("Otwórz podgląd")
             }
         }
     }
@@ -825,7 +876,7 @@ fun MealSection(
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Zwin" else "Rozwin",
+                    contentDescription = if (expanded) "Zwiń" else "Rozwiń",
                     tint = Color(0xFF1D4ED8),
                     modifier = Modifier.size(28.dp)
                 )
@@ -1048,7 +1099,7 @@ fun TimeUnitPicker(
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = "W gore",
+                    contentDescription = "W górę",
                     tint = Color(0xFF1D4ED8)
                 )
             }
@@ -1063,7 +1114,7 @@ fun TimeUnitPicker(
             }) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "W dol",
+                    contentDescription = "W dół",
                     tint = Color(0xFF1D4ED8)
                 )
             }
@@ -1163,7 +1214,7 @@ fun TutorialVideoDialog(tutorialVideo: TutorialVideo?, onDismiss: () -> Unit) {
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "Nie znaleziono pliku video: ${tutorialVideo?.resourceName ?: "brak"}",
+                            text = "Nie znaleziono pliku wideo: ${tutorialVideo?.resourceName ?: "brak"}",
                             color = Color.White,
                             textAlign = TextAlign.Center
                         )
@@ -1238,7 +1289,7 @@ fun PositionsGalleryDialog(images: List<GalleryImage>, onDismiss: () -> Unit) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Zamknij galerie",
+                                    contentDescription = "Zamknij galerię",
                                     tint = Color(0xFF0F172A),
                                     modifier = Modifier.padding(10.dp)
                                 )
@@ -1305,7 +1356,7 @@ fun ProfilePhoto(profilePhotoUri: String, onChoosePhoto: () -> Unit) {
             if (profilePhotoUri.isBlank()) {
                 Image(
                     painter = painterResource(id = R.drawable.profile_photo),
-                    contentDescription = "Zdjecie profilowe",
+                    contentDescription = "Zdjęcie profilowe",
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape),
@@ -1355,7 +1406,7 @@ fun SavedProfileCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Zmien zdjecie profilowe")
+                Text("Zmień zdjęcie profilowe")
             }
             Text(
                 text = if (uiState.fullName.isBlank()) "Profil zapisany" else uiState.fullName,
@@ -1364,11 +1415,11 @@ fun SavedProfileCard(
                 color = Color(0xFF0F172A),
                 textAlign = TextAlign.Center
             )
-            SavedProfileRow(label = "Plec", value = uiState.gender)
+            SavedProfileRow(label = "Płeć", value = uiState.gender)
             SavedProfileRow(label = "Waga", value = uiState.weight.takeIf { it.isNotBlank() }?.plus(" kg").orEmpty())
             SavedProfileRow(label = "Wzrost", value = uiState.height.takeIf { it.isNotBlank() }?.plus(" cm").orEmpty())
             SavedProfileRow(label = "Cel", value = uiState.goal)
-            SavedProfileRow(label = "Aktywnosc", value = uiState.activityLevel)
+            SavedProfileRow(label = "Aktywność", value = uiState.activityLevel)
             Button(
                 onClick = onEdit,
                 modifier = Modifier.fillMaxWidth(),
@@ -1385,7 +1436,7 @@ fun SavedProfileCard(
                     contentColor = Color(0xFFB91C1C)
                 )
             ) {
-                Text("Usun profil")
+                Text("Usuń profil")
             }
         }
     }
