@@ -1,7 +1,12 @@
 package com.example.wrofit.ui.view
 
+import android.Manifest
 import android.app.DatePickerDialog
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.MediaController
@@ -93,6 +98,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wrofit.R
 import com.example.wrofit.data.model.GalleryImage
@@ -484,10 +490,29 @@ fun ExerciseScreen(viewModel: ExerciseViewModel, navViewModel: NavigationViewMod
 
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel) {
+    val context = LocalContext.current
     val uiState = viewModel.uiState
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
             viewModel.setProfilePhotoUri(uri.toString())
+        }
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (hasProfilePhotoPermission(context, permissions)) {
+            photoPicker.launch(arrayOf("image/*"))
+        }
+    }
+    val chooseProfilePhoto = {
+        if (hasProfilePhotoPermission(context)) {
+            photoPicker.launch(arrayOf("image/*"))
+        } else {
+            permissionLauncher.launch(profilePhotoPermissions())
         }
     }
 
@@ -519,7 +544,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
                 ) {
                     ProfilePhoto(
                         profilePhotoUri = uiState.profilePhotoUri,
-                        onChoosePhoto = { photoPicker.launch("image/*") }
+                        onChoosePhoto = chooseProfilePhoto
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
@@ -535,7 +560,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { photoPicker.launch("image/*") }) {
+                    Button(onClick = chooseProfilePhoto) {
                         Text("Dodaj zdjęcie profilowe")
                     }
                 }
@@ -600,6 +625,42 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
             }
         }
     }
+}
+
+private fun profilePhotoPermissions(): Array<String> {
+    return when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+        )
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES
+        )
+        else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+}
+
+private fun hasProfilePhotoPermission(
+    context: Context,
+    grantResults: Map<String, Boolean>? = null
+): Boolean {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        return isPermissionGranted(context, Manifest.permission.READ_MEDIA_IMAGES, grantResults) ||
+            isPermissionGranted(context, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED, grantResults)
+    }
+
+    return profilePhotoPermissions().all { permission ->
+        isPermissionGranted(context, permission, grantResults)
+    }
+}
+
+private fun isPermissionGranted(
+    context: Context,
+    permission: String,
+    grantResults: Map<String, Boolean>?
+): Boolean {
+    return grantResults?.get(permission) == true ||
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 }
 
 @Composable
@@ -1373,7 +1434,11 @@ fun ProfilePhoto(profilePhotoUri: String, onChoosePhoto: () -> Unit) {
                         .fillMaxSize()
                         .clip(CircleShape),
                     update = { imageView ->
-                        imageView.setImageURI(Uri.parse(profilePhotoUri))
+                        runCatching {
+                            imageView.setImageURI(Uri.parse(profilePhotoUri))
+                        }.onFailure {
+                            imageView.setImageResource(R.drawable.profile_photo)
+                        }
                     }
                 )
             }
