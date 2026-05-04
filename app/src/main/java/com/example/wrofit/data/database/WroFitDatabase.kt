@@ -4,20 +4,44 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.wrofit.data.dao.ExerciseDayDao
 import com.example.wrofit.data.dao.FoodDao
+import com.example.wrofit.data.dao.FoodDayDao
 import com.example.wrofit.data.dao.GalleryImageDao
+import com.example.wrofit.data.dao.ProfileDao
+import com.example.wrofit.data.dao.SleepDayDao
 import com.example.wrofit.data.dao.TutorialVideoDao
+import com.example.wrofit.data.model.ExerciseDayEntity
+import com.example.wrofit.data.model.FoodDayEntity
 import com.example.wrofit.data.model.FoodEntry
 import com.example.wrofit.data.model.GalleryImage
+import com.example.wrofit.data.model.ProfileEntity
+import com.example.wrofit.data.model.SleepDayEntity
 import com.example.wrofit.data.model.TutorialVideo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 
-@Database(entities = [FoodEntry::class, GalleryImage::class, TutorialVideo::class], version = 3, exportSchema = false)
+@Database(
+    entities = [
+        FoodEntry::class,
+        FoodDayEntity::class,
+        SleepDayEntity::class,
+        ExerciseDayEntity::class,
+        ProfileEntity::class,
+        GalleryImage::class,
+        TutorialVideo::class
+    ],
+    version = 4,
+    exportSchema = false
+)
 abstract class WroFitDatabase : RoomDatabase() {
     abstract fun foodDao(): FoodDao
+    abstract fun foodDayDao(): FoodDayDao
+    abstract fun sleepDayDao(): SleepDayDao
+    abstract fun exerciseDayDao(): ExerciseDayDao
+    abstract fun profileDao(): ProfileDao
     abstract fun galleryImageDao(): GalleryImageDao
     abstract fun tutorialVideoDao(): TutorialVideoDao
 

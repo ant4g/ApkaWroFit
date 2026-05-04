@@ -230,9 +230,9 @@ fun CustomBottomNavigation(selected: Int, onSelected: (Int) -> Unit) {
                     Text(
                         text = label,
                         color = if (isSelected) Color(0xFF222222) else Color(0xFF444444),
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
                     )

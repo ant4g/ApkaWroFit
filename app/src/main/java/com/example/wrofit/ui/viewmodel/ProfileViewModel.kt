@@ -6,6 +6,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.wrofit.data.dao.ProfileDao
+import com.example.wrofit.data.database.WroFitDatabase
+import com.example.wrofit.data.model.ProfileEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 data class ProfileUiState(
@@ -32,9 +39,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         private set
 
     private val prefs = application.getSharedPreferences("profile_prefs", Context.MODE_PRIVATE)
+    private val profileDao: ProfileDao = WroFitDatabase.getDatabase(application).profileDao()
 
     init {
-        uiState = uiState.copy(
+        val prefsProfile = ProfileUiState(
             profileId = prefs.getString("profileId", "") ?: "",
             selectedDate = prefs.getString("selectedDate", "") ?: "",
             profilePhotoUri = prefs.getString("profilePhotoUri", "") ?: "",
@@ -46,6 +54,22 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             activityLevel = prefs.getString("activityLevel", "") ?: "",
             isProfileSaved = prefs.getBoolean("isProfileSaved", false)
         )
+        uiState = prefsProfile
+        viewModelScope.launch {
+            val savedProfile = withContext(Dispatchers.IO) {
+                profileDao.getSavedProfile()
+            }
+            if (savedProfile != null) {
+                uiState = savedProfile.toUiState()
+            } else if (prefsProfile.isProfileSaved) {
+                val migratedProfileId = prefsProfile.profileId.ifBlank { UUID.randomUUID().toString() }
+                uiState = prefsProfile.copy(profileId = migratedProfileId)
+                val profileEntity = uiState.toEntity(migratedProfileId)
+                withContext(Dispatchers.IO) {
+                    profileDao.upsert(profileEntity)
+                }
+            }
+        }
     }
 
     // Ustawia datę urodzenia wybraną z kalendarza
@@ -114,6 +138,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             .putString("activityLevel", uiState.activityLevel)
             .putBoolean("isProfileSaved", true)
             .apply()
+        val profileEntity = uiState.toEntity(savedProfileId)
+        viewModelScope.launch(Dispatchers.IO) {
+            profileDao.upsert(profileEntity)
+        }
     }
 
     fun editProfile() {
@@ -123,5 +151,38 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun deleteProfile() {
         prefs.edit().clear().apply()
         uiState = ProfileUiState()
+        viewModelScope.launch(Dispatchers.IO) {
+            profileDao.deleteAll()
+        }
+    }
+
+    private fun ProfileUiState.toEntity(profileId: String): ProfileEntity {
+        return ProfileEntity(
+            profileId = profileId,
+            selectedDate = selectedDate,
+            profilePhotoUri = profilePhotoUri,
+            fullName = fullName,
+            gender = gender,
+            weight = weight,
+            height = height,
+            goal = goal,
+            activityLevel = activityLevel,
+            isProfileSaved = isProfileSaved
+        )
+    }
+
+    private fun ProfileEntity.toUiState(): ProfileUiState {
+        return ProfileUiState(
+            profileId = profileId,
+            selectedDate = selectedDate,
+            profilePhotoUri = profilePhotoUri,
+            fullName = fullName,
+            gender = gender,
+            weight = weight,
+            height = height,
+            goal = goal,
+            activityLevel = activityLevel,
+            isProfileSaved = isProfileSaved
+        )
     }
 }

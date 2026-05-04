@@ -7,11 +7,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
+import com.example.wrofit.data.dao.FoodDayDao
 import com.example.wrofit.data.database.WroFitDatabase
+import com.example.wrofit.data.model.FoodDayEntity
 import com.example.wrofit.data.model.FoodEntry
 import com.example.wrofit.repository.FoodRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class MealItemData(
     val name: String = "",
@@ -39,6 +44,7 @@ data class FoodUiState(
 class FoodViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: FoodRepository
+    private val foodDayDao: FoodDayDao
     val allEntries: LiveData<List<FoodEntry>>
     val totalCalories: LiveData<Double>
     private var activeProfileId: String = ""
@@ -51,23 +57,36 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
         get() = uiStateState.value
 
     init {
-        val dao = WroFitDatabase.getDatabase(application).foodDao()
-        repository = FoodRepository(dao)
+        val database = WroFitDatabase.getDatabase(application)
+        repository = FoodRepository(database.foodDao())
+        foodDayDao = database.foodDayDao()
         allEntries = repository.allEntries
         totalCalories = repository.totalCalories
     }
 
     // Ładowanie danych przy zmianie daty [cite: 285]
     fun setSelectedDate(date: String) {
-        val dayData = _dailyFoodData[profileDateKey(date)] ?: FoodDayData()
+        val profileId = activeProfileKey()
+        val memoryKey = profileDateKey(profileId, date)
+        uiStateState.value = uiState.copy(selectedDate = date)
+        viewModelScope.launch {
+            val dayData = withContext(Dispatchers.IO) {
+                foodDayDao.getDay(profileId, date)?.toDayData()
+            } ?: _dailyFoodData[memoryKey] ?: FoodDayData()
 
-        uiStateState.value = uiState.copy(
-            selectedDate = date,
-            dailyCalorieGoal = dayData.dailyCalorieGoal,
-            breakfastItems = dayData.breakfast,
-            lunchItems = dayData.lunch,
-            dinnerItems = dayData.dinner
-        )
+            if (uiState.selectedDate != date || activeProfileKey() != profileId) {
+                return@launch
+            }
+
+            uiStateState.value = uiState.copy(
+                selectedDate = date,
+                dailyCalorieGoal = dayData.dailyCalorieGoal,
+                breakfastItems = dayData.breakfast,
+                lunchItems = dayData.lunch,
+                dinnerItems = dayData.dinner
+            )
+            _dailyFoodData[memoryKey] = dayData
+        }
     }
 
     fun setDailyCalorieGoal(value: String) {
@@ -79,10 +98,6 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setActiveProfile(profileId: String) {
         activeProfileId = profileId
-        val date = uiState.selectedDate
-        if (date.isNotBlank()) {
-            setSelectedDate(date)
-        }
     }
 
     fun setBreakfastName(index: Int, value: String) {
@@ -126,17 +141,23 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun saveToMap() {
         val date = uiState.selectedDate
+        val profileId = activeProfileKey()
         if (date.isNotBlank()) {
-            _dailyFoodData[profileDateKey(date)] = FoodDayData(
+            val dayData = FoodDayData(
                 breakfast = uiState.breakfastItems,
                 lunch = uiState.lunchItems,
                 dinner = uiState.dinnerItems,
                 dailyCalorieGoal = uiState.dailyCalorieGoal
             )
+            _dailyFoodData[profileDateKey(profileId, date)] = dayData
+            viewModelScope.launch(Dispatchers.IO) {
+                foodDayDao.upsert(dayData.toEntity(profileId, date))
+            }
         }
     }
 
-    private fun profileDateKey(date: String): String = "${activeProfileId.ifBlank { "guest" }}|$date"
+    private fun profileDateKey(profileId: String, date: String): String = "$profileId|$date"
+    private fun activeProfileKey(): String = activeProfileId.ifBlank { "guest" }
 
     fun toggleBreakfast() {
         uiStateState.value = uiState.copy(breakfastExpanded = !uiState.breakfastExpanded)
@@ -167,6 +188,53 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun caloriesTotal(values: List<MealItemData>): Int {
         return values.sumOf { value -> value.calories.toIntOrNull() ?: 0 }
+    }
+
+    private fun FoodDayData.toEntity(profileId: String, date: String): FoodDayEntity {
+        return FoodDayEntity(
+            profileId = profileId,
+            date = date,
+            breakfastJson = breakfast.toJson(),
+            lunchJson = lunch.toJson(),
+            dinnerJson = dinner.toJson(),
+            dailyCalorieGoal = dailyCalorieGoal
+        )
+    }
+
+    private fun FoodDayEntity.toDayData(): FoodDayData {
+        return FoodDayData(
+            breakfast = breakfastJson.toMealItems(),
+            lunch = lunchJson.toMealItems(),
+            dinner = dinnerJson.toMealItems(),
+            dailyCalorieGoal = dailyCalorieGoal
+        )
+    }
+
+    private fun List<MealItemData>.toJson(): String {
+        val array = JSONArray()
+        forEach { item ->
+            array.put(
+                JSONObject()
+                    .put("name", item.name)
+                    .put("calories", item.calories)
+            )
+        }
+        return array.toString()
+    }
+
+    private fun String.toMealItems(): List<MealItemData> {
+        return runCatching {
+            val array = JSONArray(this)
+            List(array.length()) { index ->
+                val item = array.getJSONObject(index)
+                MealItemData(
+                    name = item.optString("name"),
+                    calories = item.optString("calories")
+                )
+            }
+        }.getOrDefault(List(3) { MealItemData() }).let { items ->
+            if (items.size >= 3) items.take(3) else items + List(3 - items.size) { MealItemData() }
+        }
     }
 
     fun insert(entry: FoodEntry) = viewModelScope.launch(Dispatchers.IO) {
