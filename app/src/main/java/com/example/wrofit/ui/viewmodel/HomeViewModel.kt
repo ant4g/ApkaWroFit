@@ -12,6 +12,14 @@ import com.example.wrofit.repository.TutorialVideoRepository
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: GalleryRepository
     private val tutorialVideoRepository: TutorialVideoRepository
+<<<<<<< Updated upstream
+=======
+
+    // Home zna aktualna date, chociaz nie zapisuje pod nia danych formularza.
+    var selectedDate by mutableStateOf("")
+        private set
+
+>>>>>>> Stashed changes
     val galleryImages
         get() = repository.allImages
     val tutorialVideo
@@ -23,11 +31,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     init {
+        // Ten ekran korzysta tylko z danych odczytywanych z bazy.
         val database = WroFitDatabase.getDatabase(application)
         repository = GalleryRepository(database.galleryImageDao())
         tutorialVideoRepository = TutorialVideoRepository(database.tutorialVideoDao())
     }
 
+<<<<<<< Updated upstream
+=======
+    fun updateSelectedDate(date: String) {
+        selectedDate = date
+    }
+
+>>>>>>> Stashed changes
     fun showTutorialVideo() {
         isTutorialVideoVisible = true
     }
