@@ -5,6 +5,7 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -246,6 +247,7 @@ fun CustomBottomNavigation(selected: Int, onSelected: (Int) -> Unit) {
 fun HomeScreen(viewModel: HomeViewModel, navViewModel: NavigationViewModel) {
     val galleryImages by viewModel.galleryImages.observeAsState(emptyList())
     val tutorialVideo by viewModel.tutorialVideo.observeAsState()
+    var isWorkoutMusicVisible by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -270,6 +272,12 @@ fun HomeScreen(viewModel: HomeViewModel, navViewModel: NavigationViewModel) {
             )
         }
 
+        item {
+            WorkoutMusicCard(
+                onOpen = { isWorkoutMusicVisible = true }
+            )
+        }
+
         if (galleryImages.isNotEmpty()) {
             item {
                 GalleryPreview(
@@ -291,6 +299,12 @@ fun HomeScreen(viewModel: HomeViewModel, navViewModel: NavigationViewModel) {
         PositionsGalleryDialog(
             images = galleryImages,
             onDismiss = viewModel::hidePositionsGallery
+        )
+    }
+
+    if (isWorkoutMusicVisible) {
+        WorkoutMusicDialog(
+            onDismiss = { isWorkoutMusicVisible = false }
         )
     }
 }
@@ -879,6 +893,29 @@ fun TutorialCard(tutorialVideo: TutorialVideo?, onOpen: () -> Unit) {
 }
 
 @Composable
+fun WorkoutMusicCard(onOpen: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        backgroundColor = Color.White,
+        elevation = 3.dp
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = "Przykładowa muzyka do treningu",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color(0xFF0F172A)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+                Text("Otwórz muzykę")
+            }
+        }
+    }
+}
+
+@Composable
 fun GalleryPreview(images: List<GalleryImage>, onOpen: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1219,6 +1256,78 @@ fun ProfileDropdown(
                     DropdownMenuItem(onClick = { onOptionSelected(option) }) {
                         Text(option)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WorkoutMusicDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var isPlaying by remember { mutableStateOf(true) }
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(Unit) {
+        val player = MediaPlayer.create(context, R.raw.sample_workout_music).apply {
+            setOnCompletionListener {
+                isPlaying = false
+                seekTo(0)
+            }
+            start()
+        }
+        mediaPlayer = player
+
+        onDispose {
+            player.stop()
+            player.release()
+            mediaPlayer = null
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            backgroundColor = Color.White,
+            elevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Przykładowa muzyka do treningu",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF0F172A),
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Zamknij")
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        val player = mediaPlayer ?: return@Button
+                        if (player.isPlaying) {
+                            player.pause()
+                            isPlaying = false
+                        } else {
+                            player.start()
+                            isPlaying = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(if (isPlaying) "Pauza" else "Odtwórz")
                 }
             }
         }
